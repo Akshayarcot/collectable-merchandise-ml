@@ -55,11 +55,13 @@ We evaluate 4 model families designed to explore the bias-variance tradeoff and 
 2. **Proposed Custom Kernel SVM:**
    - Standard RBF fails on categorical data; standard linear fails on non-linear boundaries.
    - We construct a hybrid composite kernel:
-     $$K(i, j) = \sum_{l=1}^4 w_l \cdot U_l(i, j)$$
-     - $U_1$: Continuous Gaussian RBF kernel on search interest.
-     - $U_2, U_3, U_4$: Marco's probability-adjusted categorical overlap kernel:
-       $$U_k(z_i, z_j) = h(P(z_i)) \cdot \mathbb{I}(z_i = z_j), \quad h(z) = (1 - z^\alpha)^{1/\alpha}$$
-     - External domain weights: $w = [2, 1, 1, 3]$ (emphasizing search volume & convention rarity).
+     ```text
+     K(i, j) = w₁·U₁(xᵢ, xⱼ) + w₂·U₂(zᵢ, zⱼ) + w₃·U₃(zᵢ, zⱼ) + w₄·U₄(zᵢ, zⱼ)
+     ```
+     - `U₁`: Continuous Gaussian RBF kernel on search interest: `exp( - (xᵢ - xⱼ)² / 2θ² )`
+     - `U₂, U₃, U₄`: Marco's probability-adjusted categorical overlap kernel:
+       `Uₖ(zᵢ, zⱼ) = h(P(zᵢ)) · 1{zᵢ == zⱼ}` where `h(z) = (1 - z^α)^(1/α)` for `0 < α < 1`
+     - External domain weights: `w = [2, 1, 1, 3]` (emphasizing search volume & convention rarity).
 3. **Vanilla Decision Tree (CART):**
    - Non-parametric recursive splitting using Gini impurity.
 4. **Bagged Decision Tree Ensemble:**

@@ -28,16 +28,22 @@ This document prepares you for all anticipated technical and theoretical questio
 **Answer:**
 Standard RBF kernels compute Euclidean distances: $\|x_i - x_j\|^2$. While valid for continuous features like search volume, Euclidean distance has no natural geometric meaning for discrete nominal categories (e.g., Anime vs Marvel, or Metallic vs Flocked).
 We implement a hybrid composite kernel:
-$$K(i, j) = \sum_{l=1}^4 w_l \cdot U_l(i, j)$$
-1. **Continuous Feature ($U_1$ - Search Volume):** Gaussian RBF similarity:
-   $$U_1(x_i, x_j) = \exp\left(-\frac{(x_i - x_j)^2}{2\theta^2}\right)$$
-2. **Categorical Features ($U_2, U_3, U_4$ - Category, Material, Special Version):** Marco's probability-adjusted categorical overlap kernel:
-   $$U_k(z_i, z_j) = h(P(z_i)) \cdot \mathbb{I}(z_i = z_j)$$
-   where $h(z) = (1 - z^\alpha)^{1/\alpha}$ for $0 < \alpha < 1$.
-- **Why this function?** If two items share a feature ($z_i = z_j$), their similarity score is inversely related to the marginal probability $P(z_i)$ of that feature.
-  - If two items share a *very common* attribute (e.g., `Standard/Vinyl`, $P \approx 0.75$), $h(P(z))$ is small.
-  - If two items share an *exceptionally rare* attribute (e.g., `SDCC Exclusive`, $P \approx 0.05$), $h(P(z))$ is large.
-  - If they do not match ($z_i \neq z_j$), similarity is 0.
+```text
+K(i, j) = w₁·U₁(xᵢ, xⱼ) + w₂·U₂(zᵢ, zⱼ) + w₃·U₃(zᵢ, zⱼ) + w₄·U₄(zᵢ, zⱼ)
+```
+1. **Continuous Feature (`U₁` - Search Volume):** Gaussian RBF similarity:
+   ```text
+   U₁(xᵢ, xⱼ) = exp( - (xᵢ - xⱼ)² / 2θ² )
+   ```
+2. **Categorical Features (`U₂`, `U₃`, `U₄` - Category, Material, Special Version):** Marco's probability-adjusted categorical overlap kernel:
+   ```text
+   Uₖ(zᵢ, zⱼ) = h(P(zᵢ)) if zᵢ == zⱼ else 0
+   where h(z) = (1 - z^α)^(1/α) for 0 < α < 1
+   ```
+- **Why this function?** If two items share a feature (`zᵢ = zⱼ`), their similarity score is inversely related to the marginal probability `P(zᵢ)` of that feature.
+  - If two items share a *very common* attribute (e.g., `Standard/Vinyl`, `P ≈ 0.75`), `h(P(z))` is small.
+  - If two items share an *exceptionally rare* attribute (e.g., `SDCC Exclusive`, `P ≈ 0.05`), `h(P(z))` is large.
+  - If they do not match (`zᵢ ≠ zⱼ`), similarity is 0.
 
 ---
 

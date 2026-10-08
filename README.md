@@ -118,20 +118,44 @@ Open `presentation/index.html` in any web browser to present the slide deck duri
 ---
 
 ## 🔬 Mathematical Formulation of Custom Kernel SVM
-Standard RBF kernels cannot measure similarity between discrete categories, while linear kernels fail on non-linear boundaries. We implement Marco's probability-adjusted categorical overlap kernel combined with continuous RBF:
 
-$$K(i, j) = \sum_{l=1}^4 w_l \cdot U_l(i, j)$$
+Standard RBF kernels cannot measure similarity across discrete categorical features, while linear kernels fail on non-linear price manifolds. We implement Marco's probability-adjusted categorical overlap kernel combined with continuous Gaussian RBF:
 
-1. **Continuous Search Volume ($U_1$):** Gaussian RBF similarity:
-   $$U_1(x_i, x_j) = \exp\left(-\frac{(x_i - x_j)^2}{2\theta^2}\right)$$
-2. **Categorical Attributes ($U_2, U_3, U_4$ - Category, Material, Special Version):**
-   $$U_k(z_i, z_j) = h(P(z_i)) \cdot \mathbb{I}(z_i = z_j)$$
-   where $h(z) = (1 - z^\alpha)^{1/\alpha}$ for $0 < \alpha < 1$.
-3. **Domain Knowledge Weights:**
-   $$w = [2, 1, 1, 3]$$
-   - Weight 2 on Search Volume (organic consumer interest)
-   - Weight 1 on Category and Material
-   - Weight 3 on Special Version (San Diego Comic Con / Chase scarcity)
+```math
+K(i, j) = \sum_{l=1}^{4} w_l \cdot U_l(i, j)
+```
+
+```text
+Composite Kernel Formulation:
+  K(i, j) = w₁ · U₁(xᵢ, xⱼ)  +  w₂ · U₂(zᵢ, zⱼ)  +  w₃ · U₃(zᵢ, zⱼ)  +  w₄ · U₄(zᵢ, zⱼ)
+```
+
+### Component Definitions:
+
+1. **Continuous Search Volume (`U₁`):** Gaussian RBF similarity measuring public interest:
+   ```math
+   U_1(x_i, x_j) = \exp\left(-\frac{(x_i - x_j)^2}{2\theta^2}\right)
+   ```
+   *In text notation:* `U₁(xᵢ, xⱼ) = exp( - (xᵢ - xⱼ)² / (2θ²) )` with bandwidth parameter `θ = 0.45`.
+
+2. **Categorical Attributes (`U₂`, `U₃`, `U₄` for Category, Material, Special Version):**
+   Evaluated using Marco's probability-adjusted categorical overlap kernel:
+   ```math
+   U_k(z_i, z_j) = \begin{cases} h(P(z_i)), & \text{if } z_i = z_j \\ 0, & \text{if } z_i \neq z_j \end{cases}
+   ```
+   where the rarity weighting function is defined as:
+   ```math
+   h(z) = (1 - z^\alpha)^{1/\alpha}, \quad 0 < \alpha < 1
+   ```
+   *Intuition:* When two items share a feature (`zᵢ = zⱼ`), their similarity is inversely proportional to how common that feature is. Sharing a rare convention release (e.g., `SDCC Exclusive`) yields a much higher similarity score than sharing a common finish (e.g., `Standard/Vinyl`).
+
+3. **External Domain Knowledge Weights (`w`):**
+   ```text
+   w = [w_search, w_category, w_material, w_version] = [2, 1, 1, 3]
+   ```
+   - **Weight 2** on Search Volume (organic consumer interest & fandom demand)
+   - **Weight 1** on Category and Material (baseline genre & physical medium)
+   - **Weight 3** on Special Version (San Diego Comic Con / Chase scarcity multiplier)
 
 ---
 
