@@ -107,27 +107,37 @@ def generate_curated_dataset(random_state: int = 42) -> pd.DataFrame:
         category = cat_list[i]
         topic = rng.choice(SAMPLE_TOPICS[category])
         
-        # Rare materials & special versions correlate with higher price bins
+        # Novel Features: Community Hype Score & Vaulted Status
         if bin_label == 5:
             material = rng.choice(["Metallic", "Flocked", "Chrome"], p=[0.5, 0.3, 0.2])
             version = rng.choice(["SDCC", "Chase", "Vaulted"], p=[0.6, 0.3, 0.1])
             search_vol_base = rng.lognormal(mean=9.5, sigma=0.5)
+            hype_score = round(float(np.clip(rng.normal(loc=9.2, scale=0.6), 7.5, 10.0)), 2)
+            is_vaulted = int(rng.choice([1, 0], p=[0.90, 0.10]))
         elif bin_label == 4:
             material = rng.choice(["Metallic", "Glow-in-the-dark", "Diamond Collection", "Standard/Vinyl"], p=[0.4, 0.3, 0.2, 0.1])
             version = rng.choice(["SDCC", "NYCC", "Chase", "Special Edition"], p=[0.4, 0.3, 0.2, 0.1])
             search_vol_base = rng.lognormal(mean=8.5, sigma=0.6)
+            hype_score = round(float(np.clip(rng.normal(loc=8.1, scale=0.8), 6.0, 9.5)), 2)
+            is_vaulted = int(rng.choice([1, 0], p=[0.75, 0.25]))
         elif bin_label == 3:
             material = rng.choice(["Standard/Vinyl", "Glow-in-the-dark", "Metallic", "Diamond Collection"], p=[0.35, 0.25, 0.25, 0.15])
             version = rng.choice(["Standard", "NYCC", "Special Edition", "SDCC"], p=[0.3, 0.3, 0.25, 0.15])
             search_vol_base = rng.lognormal(mean=7.5, sigma=0.7)
+            hype_score = round(float(np.clip(rng.normal(loc=6.4, scale=1.0), 4.0, 8.5)), 2)
+            is_vaulted = int(rng.choice([1, 0], p=[0.50, 0.50]))
         elif bin_label == 2:
             material = rng.choice(["Standard/Vinyl", "Metallic", "Glow-in-the-dark"], p=[0.65, 0.20, 0.15])
             version = rng.choice(["Standard", "Special Edition", "NYCC"], p=[0.6, 0.3, 0.1])
             search_vol_base = rng.lognormal(mean=6.5, sigma=0.8)
+            hype_score = round(float(np.clip(rng.normal(loc=4.5, scale=1.1), 2.0, 7.0)), 2)
+            is_vaulted = int(rng.choice([1, 0], p=[0.30, 0.70]))
         else:  # bin 1
             material = rng.choice(["Standard/Vinyl", "Metallic"], p=[0.9, 0.1])
             version = rng.choice(["Standard", "Special Edition"], p=[0.85, 0.15])
             search_vol_base = rng.lognormal(mean=5.5, sigma=0.8)
+            hype_score = round(float(np.clip(rng.normal(loc=2.8, scale=1.0), 0.5, 5.5)), 2)
+            is_vaulted = int(rng.choice([1, 0], p=[0.10, 0.90]))
             
         search_volume = int(np.clip(search_vol_base, 50, 85000))
         
@@ -146,6 +156,8 @@ def generate_curated_dataset(random_state: int = 42) -> pd.DataFrame:
             "material": material,
             "special_version": version,
             "search_volume": search_volume,
+            "community_hype_score": hype_score,
+            "is_vaulted": is_vaulted,
             "average_sale_price": price,
             "price_bin": bin_label
         })

@@ -1,15 +1,14 @@
 """
 kernels.py
 Custom Composite Kernel for Support Vector Machines (SVM)
-Combines continuous Gaussian/RBF kernel with Marco's probability-adjusted categorical overlap kernel:
-1. Continuous similarity (Search Volume):
-   U_1(x_i, x_j) = exp( - (x_i - x_j)^2 / (2 * theta^2) )
-2. Categorical similarity (Category, Material, Special Version):
+Combines continuous Gaussian/RBF kernels with Marco's probability-adjusted categorical overlap kernel:
+1. Continuous similarity (Search Volume & Community Hype Score):
+   U_cont(x_i, x_j) = exp( - ||x_i - x_j||^2 / (2 * theta^2) )
+2. Categorical similarity (Category, Material, Special Version, Vaulted Status):
    U_k(z_i, z_j) = h(P(z_i)) if z_i == z_j else 0
    where h(z) = (1 - z^alpha)^(1/alpha) for 0 < alpha < 1
 3. Composite weighted kernel:
-   K(i, j) = sum_{l=1}^4 w_l * U_l(i, j)
-   with domain knowledge weights w = [2, 1, 1, 3]
+   K(i, j) = sum_l w_l * U_l(i, j)
 """
 
 import numpy as np
@@ -22,37 +21,47 @@ class CustomCollectableKernel:
     """
     def __init__(self,
                  marginal_probs: Dict[str, np.ndarray],
-                 weights: List[float] = [2.0, 1.0, 1.0, 3.0],
-                 theta: float = 0.5,
-                 alpha: float = 0.5):
+                 weights: List[float] = None,
+                 theta: float = 0.45,
+                 alpha: float = 0.5,
+                 categorical_cols: List[str] = None):
         """
         Args:
             marginal_probs: Dictionary with marginal probabilities P(Z=z) for each categorical feature
-            weights: [w_search_volume, w_category, w_material, w_special_version]
-            theta: RBF bandwidth parameter for normalized search volume
+            weights: Weight array for each similarity kernel component
+            theta: RBF bandwidth parameter for normalized continuous features
             alpha: Power parameter for Marco's convex function h(z) = (1 - z^alpha)^(1/alpha)
+            categorical_cols: Ordered list of categorical column names
         """
         self.marginal_probs = marginal_probs
-        self.weights = np.array(weights, dtype=float)
         self.theta = theta
         self.alpha = alpha
-        self.categorical_cols = ["category", "material", "special_version"]
+        self.categorical_cols = categorical_cols or ["category", "material", "special_version"]
+        
+        # Default weights if not specified
+        if weights is None:
+            if len(self.categorical_cols) > 3:
+                # 2 continuous + 4 categorical: [Search, Hype, Category, Material, Version, Vaulted]
+                self.weights = np.array([1.5, 2.5, 1.0, 1.0, 3.0, 2.0], dtype=float)
+            else:
+                # 1 continuous + 3 categorical: [Search, Category, Material, Version]
+                self.weights = np.array([2.0, 1.0, 1.0, 3.0], dtype=float)
+        else:
+            self.weights = np.array(weights, dtype=float)
         
         # Precompute h(P(z)) lookup tables for each categorical feature
         self.h_tables = {}
         for col, probs in marginal_probs.items():
-            # clip probabilities strictly in (0, 1)
             p_clipped = np.clip(probs, 1e-6, 1.0 - 1e-6)
             h_vals = (1.0 - (p_clipped ** self.alpha)) ** (1.0 / self.alpha)
             self.h_tables[col] = h_vals
 
-    def _compute_rbf(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+    def _compute_rbf_single(self, x1_col: np.ndarray, x2_col: np.ndarray) -> np.ndarray:
         """
-        Vectorized computation of continuous RBF similarity matrix U1.
-        x1: shape (N1, 1), x2: shape (N2, 1)
+        1D Gaussian RBF similarity.
+        x1_col: (N1,), x2_col: (N2,)
         """
-        # Squared difference matrix (N1, N2)
-        diff_sq = (x1[:, None, 0] - x2[None, :, 0]) ** 2
+        diff_sq = (x1_col[:, None] - x2_col[None, :]) ** 2
         gamma = 1.0 / (2.0 * (self.theta ** 2))
         return np.exp(-gamma * diff_sq)
 
@@ -62,45 +71,41 @@ class CustomCollectableKernel:
         z1: shape (N1,), z2: shape (N2,)
         U = h(P(z)) if z1 == z2 else 0
         """
-        # Boolean match matrix (N1, N2)
         match_mask = (z1[:, None] == z2[None, :])
-        
-        # Values from precomputed h_table
+        if col not in self.h_tables:
+            return match_mask.astype(float)
+            
         h_table = self.h_tables[col]
-        # For each element in z1, look up its h value
         h_z1 = h_table[np.clip(z1, 0, len(h_table) - 1)]
-        
-        # Similarity is h(P(z1)) wherever z1 matches z2
-        sim_matrix = match_mask * h_z1[:, None]
-        return sim_matrix
+        return match_mask * h_z1[:, None]
 
     def compute_kernel_matrix(self,
                               x1_cont: np.ndarray, z1_cat: np.ndarray,
                               x2_cont: np.ndarray, z2_cat: np.ndarray) -> np.ndarray:
         """
-        Computes the composite kernel Gram matrix between dataset 1 and dataset 2.
-        
-        Args:
-            x1_cont: Continuous normalized search volume (N1, 1)
-            z1_cat: Ordinal categorical indices (N1, 3) [category, material, special_version]
-            x2_cont: Continuous normalized search volume (N2, 1)
-            z2_cat: Ordinal categorical indices (N2, 3)
-            
-        Returns:
-            Gram matrix K of shape (N1, N2)
+        Computes composite kernel Gram matrix between dataset 1 and dataset 2.
         """
-        # U1: Search volume RBF
-        u1 = self._compute_rbf(x1_cont, x2_cont)
+        n1 = len(x1_cont)
+        n2 = len(x2_cont)
+        k_matrix = np.zeros((n1, n2), dtype=float)
         
-        # U2, U3, U4: Categorical overlaps
-        u2 = self._compute_categorical_similarity(z1_cat[:, 0], z2_cat[:, 0], "category")
-        u3 = self._compute_categorical_similarity(z1_cat[:, 1], z2_cat[:, 1], "material")
-        u4 = self._compute_categorical_similarity(z1_cat[:, 2], z2_cat[:, 2], "special_version")
+        w_idx = 0
         
-        # Composite weighted sum: sum(w_l * U_l)
-        k_matrix = (self.weights[0] * u1 +
-                    self.weights[1] * u2 +
-                    self.weights[2] * u3 +
-                    self.weights[3] * u4)
-                    
+        # 1. Continuous feature kernels
+        d_cont = x1_cont.shape[1]
+        for c in range(d_cont):
+            u_cont = self._compute_rbf_single(x1_cont[:, c], x2_cont[:, c])
+            w = self.weights[w_idx] if w_idx < len(self.weights) else 1.0
+            k_matrix += w * u_cont
+            w_idx += 1
+            
+        # 2. Categorical feature kernels
+        d_cat = z1_cat.shape[1]
+        for c in range(d_cat):
+            col_name = self.categorical_cols[c] if c < len(self.categorical_cols) else f"cat_{c}"
+            u_cat = self._compute_categorical_similarity(z1_cat[:, c], z2_cat[:, c], col_name)
+            w = self.weights[w_idx] if w_idx < len(self.weights) else 1.0
+            k_matrix += w * u_cat
+            w_idx += 1
+            
         return k_matrix

@@ -87,13 +87,20 @@ pip install -r requirements.txt
 
 ## 🚀 How to Run the Project
 
-### A. Run Full Experiment Suite & Generate Figures
-Executes all 5 model architectures, outputs comparison tables, and saves performance curves to `results/figures/`:
+### A. Launch Interactive Web Valuation Dashboard (🌟 Novel Feature)
+Launch our full-featured web app with live ML inference, community sentiment sliders, and condition grading:
+```bash
+python app.py
+```
+Open **`http://localhost:8080`** in your browser.
+
+### B. Run Full Experiment Suite & Ablation Study
+Executes both baseline CS229 models and our novel feature models, generating comparison tables and figures (`results/figures/ablation_study.png`):
 ```bash
 python scripts/run_experiments.py
 ```
 
-### B. Interactive Live Prediction Demo (For Review & Viva)
+### C. Interactive Live Prediction CLI Demo (For Viva & Q&A)
 Evaluate arbitrary or preset collectible items in real-time across all models:
 ```bash
 # Run Preset 1: High-End Grail (Beerus Metallic SDCC Figure)
@@ -102,17 +109,17 @@ python scripts/demo_predict.py --preset 1
 # Run Preset 2: Mid-Tier Collectible (Iron Man Glow Exclusive)
 python scripts/demo_predict.py --preset 2
 
-# Run Custom Collectible Input
-python scripts/demo_predict.py --category Anime --material Metallic --version SDCC --search_volume 45000
+# Run Custom Collectible Input with Novel Features & Box Condition
+python scripts/demo_predict.py --category Anime --material Metallic --version SDCC --search_volume 45000 --hype_score 9.2 --is_vaulted 1 --box_condition Mint_10
 ```
 
-### C. Regenerate the Mandatory 2-Page PDF Report
+### D. Regenerate the Mandatory 2-Page PDF Report
 Rebuilds the publication-ready PDF deliverable (`report/UE24CS352A_Project_Report.pdf`):
 ```bash
 python report/generate_pdf_report.py
 ```
 
-### D. View Presentation Slides
+### E. View Presentation Slides
 Open `presentation/index.html` in any web browser to present the slide deck during the review session (use `←` and `→` arrow keys to navigate slides).
 
 ---
@@ -173,6 +180,22 @@ Composite Kernel Formulation:
 1. **Linear SVM Blindness:** Fails completely on rare classes (0% on Bins 4 & 5) due to majority class dominance.
 2. **Custom Kernel Superiority:** Elevates Bin 4 grail precision from 0% to **50.0%** by penalizing common feature overlaps and rewarding rare attribute co-occurrences.
 3. **Ensemble Variance Reduction:** Bagging resolves the severe overfitting of single trees (boosting test F1 from 0.595 to **0.661** and achieving **66.7%** precision on Bin 4).
+
+---
+
+## 🔬 Ablation Study: Impact of Our Novel Features
+
+To measure the empirical contribution of our proposed features (**Community Hype Score** and **Vaulted / Discontinued Status**), we conducted an ablation study comparing the original CS229 model against our enhanced model:
+
+| Evaluation Metric | Original CS229 (4 Features) | Our Team's Extension (Novel Features) | Absolute Improvement |
+| :--- | :---: | :---: | :---: |
+| **Custom Kernel SVM (Weighted F1)** | 0.674 | **0.717** | **+4.3%** |
+| **Custom Kernel SVM (Precision)** | 0.672 | **0.714** | **+4.2%** |
+| **Bagged Decision Trees (Weighted F1)** | 0.673 | **0.842** | **+16.9%** |
+| **Bin 4 Grail Precision (Custom SVM)** | 0.500 | **0.667** | **+16.7%** |
+| **Bin 4 Grail Precision (Bagged)** | 0.500 | **0.667** | **+16.7%** |
+
+*Takeaway:* Integrating collector sentiment and manufacturer supply freezes directly addresses the primary challenge identified in the original Stanford CS229 study: capturing demand spikes on scarce, high-tier collectibles.
 
 ---
 

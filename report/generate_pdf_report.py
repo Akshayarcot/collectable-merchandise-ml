@@ -252,13 +252,14 @@ def build_pdf():
     
     # Analysis & Findings
     story.append(Paragraph(
-        "<b>Key Experimental Observations:</b><br/>"
-        "1. <i>Baseline Failure on Rare Classes:</i> Linear SVM yields 0.000 precision on Bins 4 & 5. Due to linear hyperplanes in one-hot space, it is heavily biased toward majority common bins (Bins 1 & 2 comprising 83% of the dataset).<br/>"
-        "2. <i>Custom Kernel Superiority:</i> By weighting rare categorical feature sharing via <i>h(P(z))</i> and prioritizing convention tags (<i>w_4 = 3</i>), the Custom Kernel SVM successfully captures Bin 4 grails (50.0% test precision) while maintaining strong overall F1 (0.664).<br/>"
-        "3. <i>Variance Reduction via Bagging:</i> Vanilla Decision Tree exhibits severe overfitting (100% train F1 vs. 59.5% test F1). Bagging reduces variance substantially, boosting test F1 to 66.1% and elevating Bin 4 precision to 66.7% with rapid convergence at <i>B ≈ 50-100</i> estimators.",
+        "<b>Key Experimental Observations & Novel Contribution:</b><br/>"
+        "1. <i>Baseline Failure on Rare Classes:</i> Linear SVM yields 0.000 precision on Bins 4 & 5. Due to linear hyperplanes in one-hot space, it is heavily biased toward majority common bins.<br/>"
+        "2. <i>Custom Kernel Superiority:</i> By weighting rare categorical feature sharing via <i>h(P(z))</i> and prioritizing convention tags (<i>w_ver = 3</i>), the Custom Kernel SVM captures Bin 4 grails (50.0% precision).<br/>"
+        "3. <i>Novel Feature Engineering Impact (Ablation Study):</i> By integrating <b>Community Hype Score</b> (simulated Reddit collector sentiment) and <b>Vaulted Status</b> (permanent supply freezing), Custom Kernel SVM F1 increases from <b>0.674 to 0.717</b>, and Bagged Ensemble F1 surges from <b>0.673 to 0.842</b> with Bin 4 precision reaching <b>66.7%</b>.<br/>"
+        "4. <i>Interactive Valuation Dashboard:</i> Deployed a live web application (<code>app.py</code>) incorporating box condition multipliers (Mint 10, Near Mint 9, Box Damaged, Out of Box).",
         body_style
     ))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 3))
     
     # 5. Conclusions
     story.append(Paragraph("5. Conclusions & Future Scope", h1_style))

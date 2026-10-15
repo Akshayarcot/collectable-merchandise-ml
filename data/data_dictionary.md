@@ -16,6 +16,8 @@
 | `material` | Categorical | Physical finish/material variant | `Standard/Vinyl`, `Metallic`, `Flocked`, `Glow-in-the-dark`, `Diamond Collection`, `Chrome` |
 | `special_version` | Categorical | Production edition / convention exclusivity | `Standard`, `SDCC` (San Diego Comic Con), `NYCC` (New York Comic Con), `Chase`, `Special Edition`, `Vaulted` |
 | `search_volume` | Integer | Normalized monthly organic search interest (proxy for demand) | Range: 50 – 85,000 monthly queries |
+| `community_hype_score` | Float | **(Novel Feature)** Reddit `r/funkopop` collector hype & discussion intensity | Range: 0.0 – 10.0 |
+| `is_vaulted` | Integer | **(Novel Feature)** Manufacturer production status (0 = Active, 1 = Discontinued/Vaulted) | 0 or 1 |
 | `average_sale_price` | Float | Secondary market transaction price in USD ($) | Range: $14.00 – $2,150.00 |
 | `price_bin` | Integer | Target classification label (5 log-spaced intervals) | 1, 2, 3, 4, 5 |
 

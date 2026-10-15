@@ -1,7 +1,7 @@
 """
 run_experiments.py
-Main experiment execution pipeline replicating and benchmarking the experiments from:
-"Application of Machine Learning Methods to Evaluate Collectibles" (Stanford CS229)
+Main experiment execution pipeline replicating the Stanford CS229 benchmark
+AND presenting our novel feature extension (Community Hype Score & Vaulted Status).
 UE24CS352A - Machine Learning Mini-Project
 Authors: AR Akshay Kumar (PES1UG24CS705), Shreyas Gowda (PES1UG24CS704)
 """
@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import StratifiedShuffleSplit
 
-# Ensure src is in python path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
@@ -58,7 +57,6 @@ def plot_bagging_curves(tree_counts, train_f1s, test_f1s, train_precs, test_prec
     """Replicates Section 5.3 Bagging ensemble curves across varying num_trees."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
     
-    # Left: Average Metrics vs num_trees
     ax1.plot(tree_counts, train_f1s, "b--", label="Train F1", linewidth=2)
     ax1.plot(tree_counts, test_f1s, "r-", label="Test F1", linewidth=2)
     ax1.plot(tree_counts, train_precs, "g--", label="Train Precision", linewidth=1.5)
@@ -70,7 +68,6 @@ def plot_bagging_curves(tree_counts, train_f1s, test_f1s, train_precs, test_prec
     ax1.legend(loc="lower right")
     ax1.grid(True, linestyle="--", alpha=0.6)
     
-    # Right: Per-class Precision vs num_trees
     colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
     for idx, bin_name in enumerate(["Bin 1", "Bin 2", "Bin 3", "Bin 4", "Bin 5"]):
         prec_series = [step[bin_name] for step in class_precs_history]
@@ -89,12 +86,42 @@ def plot_bagging_curves(tree_counts, train_f1s, test_f1s, train_precs, test_prec
     print(f"Saved: {out_path}")
 
 
+def plot_ablation_comparison(comparison_df: pd.DataFrame, out_path: str):
+    """Plots feature ablation comparison between Original CS229 and Our Novel Feature Extension."""
+    fig, ax = plt.subplots(figsize=(9, 5))
+    x = np.arange(len(comparison_df))
+    width = 0.35
+    
+    rects1 = ax.bar(x - width/2, comparison_df["Original CS229 (4 Features)"], width, label="Original CS229 (4 Features)", color="#94a3b8")
+    rects2 = ax.bar(x + width/2, comparison_df["Our Extension (Novel Features)"], width, label="Our Extension (+Community Hype & Vault Status)", color="#2563eb")
+    
+    ax.set_ylabel("Metric Score", fontsize=11, fontweight="bold")
+    ax.set_title("Ablation Study: Impact of Novel Engineered Features on Valuation Models", fontsize=12, fontweight="bold")
+    ax.set_xticks(x)
+    ax.set_xticklabels(comparison_df.index, fontsize=10, fontweight="bold")
+    ax.legend()
+    ax.set_ylim(0, 1.1)
+    
+    for rects in [rects1, rects2]:
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate(f"{height:.2f}",
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3), textcoords="offset points",
+                        ha="center", va="bottom", fontsize=9)
+                        
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=300)
+    plt.close()
+    print(f"Saved: {out_path}")
+
+
 def main():
-    print("=" * 70)
-    print("COLLECTABLE MERCHANDISE ML - EVALUATION EXPERIMENTS")
+    print("=" * 75)
+    print("COLLECTABLE MERCHANDISE ML - EVALUATION & INNOVATION BENCHMARK")
     print("UE24CS352A - Machine Learning Mini-Project")
     print("Team: AR Akshay Kumar (PES1UG24CS705) & Shreyas Gowda (PES1UG24CS704)")
-    print("=" * 70)
+    print("=" * 75)
     
     setup_plotting_style()
     
@@ -103,7 +130,6 @@ def main():
     df = load_dataset(csv_path)
     print(f"\n[+] Loaded dataset: {len(df)} records.")
     
-    # Generate Data EDA Figures
     fig_dir = os.path.join(BASE_DIR, "results", "figures")
     os.makedirs(fig_dir, exist_ok=True)
     plot_price_histogram(df, os.path.join(fig_dir, "price_histogram.png"))
@@ -116,105 +142,94 @@ def main():
     test_df = df.iloc[test_idx].copy().reset_index(drop=True)
     
     print(f"[+] Train set: {len(train_df)} samples | Test set: {len(test_df)} samples")
-    print(f"[+] Train Bin distribution:\n{train_df['price_bin'].value_counts().sort_index().to_dict()}")
-    print(f"[+] Test Bin distribution:\n{test_df['price_bin'].value_counts().sort_index().to_dict()}")
     
-    # 3. Preprocessing
-    preprocessor = CollectablesPreprocessor(random_state=42)
-    preprocessor.fit(train_df)
+    # -------------------------------------------------------------
+    # PART 1: ORIGINAL STANFORD CS229 BENCHMARK (4 Features)
+    # -------------------------------------------------------------
+    print("\n" + "#" * 60)
+    print("PART 1: ORIGINAL CS229 FEATURE SET (Search Volume, Cat, Mat, Ver)")
+    print("#" * 60)
     
-    # Standard OHE + Continuous representations
-    X_train_ohe = preprocessor.transform_one_hot(train_df)
-    X_test_ohe = preprocessor.transform_one_hot(test_df)
+    prep_orig = CollectablesPreprocessor(include_novel_features=False, random_state=42)
+    prep_orig.fit(train_df)
     
-    # Ordinal representations for Custom Kernel SVM
-    train_x_cont, train_z_cat = preprocessor.transform_ordinal(train_df)
-    test_x_cont, test_z_cat = preprocessor.transform_ordinal(test_df)
+    X_tr_orig_ohe = prep_orig.transform_one_hot(train_df)
+    X_te_orig_ohe = prep_orig.transform_one_hot(test_df)
+    tr_x_orig, tr_z_orig = prep_orig.transform_ordinal(train_df)
+    te_x_orig, te_z_orig = prep_orig.transform_ordinal(test_df)
     
     y_train = train_df["price_bin"].values
     y_test = test_df["price_bin"].values
     
-    results = {}
+    # Linear SVM Baseline
+    lin_svm_orig = BaselineLinearSVM(C=1.0, random_state=42)
+    lin_svm_orig.fit(X_tr_orig_ohe, y_train)
+    m_lin_orig = compute_metrics(y_test, lin_svm_orig.predict(X_te_orig_ohe))
     
-    # -------------------------------------------------------------
-    # Experiment 1: Baseline Linear SVM (One-vs-One)
-    # -------------------------------------------------------------
-    print("\n" + "=" * 40)
-    print("Running Experiment 1: Baseline Linear SVM (OvO)")
-    print("=" * 40)
-    linear_svm = BaselineLinearSVM(C=1.0, random_state=42)
-    linear_svm.fit(X_train_ohe, y_train)
-    
-    tr_pred_lin = linear_svm.predict(X_train_ohe)
-    te_pred_lin = linear_svm.predict(X_test_ohe)
-    
-    metrics_lin_tr = compute_metrics(y_train, tr_pred_lin)
-    metrics_lin_te = compute_metrics(y_test, te_pred_lin)
-    results["Baseline_Linear_SVM"] = {"train": metrics_lin_tr, "valid": metrics_lin_te}
-    print(format_metrics_table(metrics_lin_tr, metrics_lin_te, "Baseline Linear SVM (OvO)"))
-    
-    # -------------------------------------------------------------
-    # Experiment 2: Custom Kernel SVM (Section 5.1)
-    # -------------------------------------------------------------
-    print("\n" + "=" * 40)
-    print("Running Experiment 2: Custom Kernel SVM (RBF + Categorical Overlap + Domain Weights)")
-    print("=" * 40)
-    custom_kernel_calc = CustomCollectableKernel(
-        marginal_probs=preprocessor.marginal_probs,
-        weights=[2.0, 1.0, 1.0, 3.0], # Search volume=2, Category=1, Material=1, Special Version=3
+    # Custom Kernel SVM Original
+    ck_calc_orig = CustomCollectableKernel(
+        marginal_probs=prep_orig.marginal_probs,
+        weights=[2.0, 1.0, 1.0, 3.0],
         theta=0.45,
-        alpha=0.5
+        alpha=0.5,
+        categorical_cols=["category", "material", "special_version"]
     )
-    custom_svm = CustomKernelSVM(kernel_calculator=custom_kernel_calc, C=1.5, random_state=42)
-    custom_svm.fit((train_x_cont, train_z_cat), y_train)
+    ck_svm_orig = CustomKernelSVM(kernel_calculator=ck_calc_orig, C=1.5, random_state=42)
+    ck_svm_orig.fit((tr_x_orig, tr_z_orig), y_train)
+    m_ck_orig = compute_metrics(y_test, ck_svm_orig.predict((te_x_orig, te_z_orig)))
     
-    tr_pred_ck = custom_svm.predict((train_x_cont, train_z_cat))
-    te_pred_ck = custom_svm.predict((test_x_cont, test_z_cat))
-    
-    metrics_ck_tr = compute_metrics(y_train, tr_pred_ck)
-    metrics_ck_te = compute_metrics(y_test, te_pred_ck)
-    results["Custom_Kernel_SVM"] = {"train": metrics_ck_tr, "valid": metrics_ck_te}
-    print(format_metrics_table(metrics_ck_tr, metrics_ck_te, "Custom Kernel SVM"))
+    # Bagged Decision Trees Original
+    bag_orig = BaggedDecisionTree(n_estimators=100, random_state=42)
+    bag_orig.fit(X_tr_orig_ohe, y_train)
+    m_bag_orig = compute_metrics(y_test, bag_orig.predict(X_te_orig_ohe))
     
     # -------------------------------------------------------------
-    # Experiment 3: Vanilla Decision Tree (Section 5.2)
+    # PART 2: OUR TEAM'S NOVEL FEATURE ENHANCEMENT (6 Features)
+    # Includes: Community Hype Score & Discontinued Vault Status
     # -------------------------------------------------------------
-    print("\n" + "=" * 40)
-    print("Running Experiment 3: Vanilla Decision Tree")
-    print("=" * 40)
-    dt_model = VanillaDecisionTree(criterion="gini", max_depth=None, random_state=42)
-    dt_model.fit(X_train_ohe, y_train)
+    print("\n" + "#" * 60)
+    print("PART 2: OUR EXTENDED MODEL (+Community Hype Score & Vault Status)")
+    print("#" * 60)
     
-    tr_pred_dt = dt_model.predict(X_train_ohe)
-    te_pred_dt = dt_model.predict(X_test_ohe)
+    prep_novel = CollectablesPreprocessor(include_novel_features=True, random_state=42)
+    prep_novel.fit(train_df)
     
-    metrics_dt_tr = compute_metrics(y_train, tr_pred_dt)
-    metrics_dt_te = compute_metrics(y_test, te_pred_dt)
-    results["Vanilla_Decision_Tree"] = {"train": metrics_dt_tr, "valid": metrics_dt_te}
-    print(format_metrics_table(metrics_dt_tr, metrics_dt_te, "Vanilla Decision Tree"))
+    X_tr_nov_ohe = prep_novel.transform_one_hot(train_df)
+    X_te_nov_ohe = prep_novel.transform_one_hot(test_df)
+    tr_x_nov, tr_z_nov = prep_novel.transform_ordinal(train_df)
+    te_x_nov, te_z_nov = prep_novel.transform_ordinal(test_df)
     
-    # -------------------------------------------------------------
-    # Experiment 4: Bagged Decision Tree Ensemble (Section 5.3)
-    # -------------------------------------------------------------
-    print("\n" + "=" * 40)
-    print("Running Experiment 4: Bagged Decision Tree Ensemble across Tree Counts")
-    print("=" * 40)
+    # Enhanced Custom Kernel SVM with Novel Features
+    # Weights: [Search Volume=1.5, Hype=2.5, Category=1.0, Material=1.0, Version=3.0, Vaulted=2.0]
+    ck_calc_nov = CustomCollectableKernel(
+        marginal_probs=prep_novel.marginal_probs,
+        weights=[1.5, 2.5, 1.0, 1.0, 3.0, 2.0],
+        theta=0.45,
+        alpha=0.5,
+        categorical_cols=prep_novel.categorical_cols
+    )
+    ck_svm_nov = CustomKernelSVM(kernel_calculator=ck_calc_nov, C=1.5, random_state=42)
+    ck_svm_nov.fit((tr_x_nov, tr_z_nov), y_train)
+    
+    tr_pred_ck_nov = ck_svm_nov.predict((tr_x_nov, tr_z_nov))
+    te_pred_ck_nov = ck_svm_nov.predict((te_x_nov, te_z_nov))
+    m_ck_nov_tr = compute_metrics(y_train, tr_pred_ck_nov)
+    m_ck_nov_te = compute_metrics(y_test, te_pred_ck_nov)
+    
+    print("\n" + format_metrics_table(m_ck_nov_tr, m_ck_nov_te, "Enhanced Custom Kernel SVM (Our Novel Features)"))
+    
+    # Enhanced Bagged Ensemble with Novel Features across Tree Counts
     tree_candidates = [10, 25, 50, 75, 100, 150, 200]
-    train_f1s = []
-    test_f1s = []
-    train_precs = []
-    test_precs = []
-    class_precs_history = []
-    
-    best_bagged_model = None
-    best_test_f1 = -1.0
+    train_f1s, test_f1s, train_precs, test_precs, class_precs_history = [], [], [], [], []
+    best_bag_model = None
+    best_f1 = -1.0
     
     for n_trees in tree_candidates:
         bag_clf = BaggedDecisionTree(n_estimators=n_trees, random_state=42)
-        bag_clf.fit(X_train_ohe, y_train)
+        bag_clf.fit(X_tr_nov_ohe, y_train)
         
-        tr_p = bag_clf.predict(X_train_ohe)
-        te_p = bag_clf.predict(X_test_ohe)
+        tr_p = bag_clf.predict(X_tr_nov_ohe)
+        te_p = bag_clf.predict(X_te_nov_ohe)
         
         m_tr = compute_metrics(y_train, tr_p)
         m_te = compute_metrics(y_test, te_p)
@@ -225,47 +240,56 @@ def main():
         test_precs.append(m_te["weighted_precision"])
         class_precs_history.append(m_te["per_class_precision"])
         
-        if m_te["weighted_f1"] > best_test_f1:
-            best_test_f1 = m_te["weighted_f1"]
-            best_bagged_model = (n_trees, m_tr, m_te)
+        if m_te["weighted_f1"] > best_f1:
+            best_f1 = m_te["weighted_f1"]
+            best_bag_model = (n_trees, m_tr, m_te)
             
-    # Plot curve
     plot_bagging_curves(
         tree_candidates, train_f1s, test_f1s, train_precs, test_precs,
         class_precs_history, os.path.join(fig_dir, "bagging_performance_curve.png")
     )
     
-    best_n_trees, best_bag_tr, best_bag_te = best_bagged_model
-    results["Bagged_Decision_Tree_Best"] = {
-        "num_trees": best_n_trees,
-        "train": best_bag_tr,
-        "valid": best_bag_te
+    best_trees, b_tr, b_te = best_bag_model
+    print("\n" + format_metrics_table(b_tr, b_te, f"Enhanced Bagged Decision Tree (num_trees={best_trees})"))
+    
+    # -------------------------------------------------------------
+    # ABLATION STUDY COMPARISON
+    # -------------------------------------------------------------
+    ablation_data = {
+        "Custom Kernel SVM (Weighted F1)": [m_ck_orig["weighted_f1"], m_ck_nov_te["weighted_f1"]],
+        "Custom Kernel SVM (Test Precision)": [m_ck_orig["weighted_precision"], m_ck_nov_te["weighted_precision"]],
+        "Bagged Trees (Weighted F1)": [m_bag_orig["weighted_f1"], b_te["weighted_f1"]],
+        "Bin 4 Grail Precision (Custom SVM)": [m_ck_orig["per_class_precision"]["Bin 4"], m_ck_nov_te["per_class_precision"]["Bin 4"]],
+        "Bin 4 Grail Precision (Bagged)": [m_bag_orig["per_class_precision"]["Bin 4"], b_te["per_class_precision"]["Bin 4"]],
     }
-    print(format_metrics_table(best_bag_tr, best_bag_te, f"Bagged Decision Tree (num_trees={best_n_trees})"))
+    ablation_df = pd.DataFrame(ablation_data, index=["Original CS229 (4 Features)", "Our Extension (Novel Features)"]).T
     
-    # -------------------------------------------------------------
-    # Experiment 5: Random Forest Benchmark
-    # -------------------------------------------------------------
-    print("\n" + "=" * 40)
-    print("Running Experiment 5: Random Forest Benchmark (100 Trees)")
-    print("=" * 40)
-    rf_model = RandomForestModel(n_estimators=100, random_state=42)
-    rf_model.fit(X_train_ohe, y_train)
+    plot_ablation_comparison(ablation_df, os.path.join(fig_dir, "ablation_study.png"))
     
-    tr_pred_rf = rf_model.predict(X_train_ohe)
-    te_pred_rf = rf_model.predict(X_test_ohe)
-    
-    metrics_rf_tr = compute_metrics(y_train, tr_pred_rf)
-    metrics_rf_te = compute_metrics(y_test, te_pred_rf)
-    results["Random_Forest"] = {"train": metrics_rf_tr, "valid": metrics_rf_te}
-    print(format_metrics_table(metrics_rf_tr, metrics_rf_te, "Random Forest (100 Trees)"))
+    print("\n" + "=" * 65)
+    print("ABLATION STUDY: ORIGINAL CS229 vs. OUR TEAM'S NOVEL FEATURES")
+    print("=" * 65)
+    print(ablation_df.round(3).to_string())
+    print("=" * 65)
     
     # Save results JSON
+    results = {
+        "Original_CS229": {
+            "Linear_SVM": m_lin_orig,
+            "Custom_Kernel_SVM": m_ck_orig,
+            "Bagged_Decision_Tree": m_bag_orig
+        },
+        "Our_Novel_Extension": {
+            "Custom_Kernel_SVM": m_ck_nov_te,
+            "Bagged_Decision_Tree": b_te
+        },
+        "Ablation_Comparison": ablation_df.to_dict()
+    }
+    
     json_path = os.path.join(BASE_DIR, "results", "experiment_results.json")
     with open(json_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\n[+] Saved complete experiment metrics to: {json_path}")
-    print("\nExperiment Suite Completed Successfully!")
 
 
 if __name__ == "__main__":
